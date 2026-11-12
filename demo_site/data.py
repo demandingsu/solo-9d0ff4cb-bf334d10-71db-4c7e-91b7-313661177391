@@ -3,11 +3,25 @@
 The pages deliberately put the original notice and its follow-up notices on
 different result pages.  A second lot of the same project is included so that
 the checker's lot isolation can be demonstrated.
+
+Two further projects (DEMO-2026-004 / DEMO-2026-005) carry old and new
+requirement tables for the list-diff page: merged package cells, an item
+moving to another package, and a single-version key conflict.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class RequirementRow:
+    # package_no=None means the cell is merged into the row above (rowspan).
+    package_no: str | None
+    item_no: str
+    name: str
+    quantity: str
+    unit: str
 
 
 @dataclass(frozen=True)
@@ -22,6 +36,9 @@ class Notice:
     deadline_label: str | None
     body: tuple[str, ...]
     project_name: str
+    requirements: tuple[RequirementRow, ...] = ()
+    requirements_title: str = ""
+    requirements_note: str = ""
 
 
 NOTICES: tuple[Notice, ...] = (
@@ -175,6 +192,98 @@ NOTICES: tuple[Notice, ...] = (
         ),
         project_name="北岸道路照明提升项目",
     ),
+    Notice(
+        slug="DEMO-2026-004-req-v1",
+        project_no="DEMO-2026-004",
+        section_no="01、02",
+        notice_type="original",
+        title="智慧校园文印设备采购项目采购公告（附第 1 版采购需求表）",
+        published_at="2026-11-02 09:00",
+        deadline=None,
+        deadline_label=None,
+        body=(
+            "智慧校园文印设备采购项目现公开征集供应商，采购需求表附后。",
+            "项目编号：DEMO-2026-004；需求表中的包号使用合并单元格标示。",
+            "有意向的供应商可按包领取采购文件。",
+        ),
+        project_name="智慧校园文印设备采购项目",
+        requirements_title="采购需求一览表（第 1 版）",
+        requirements=(
+            RequirementRow("1", "1", "台式计算机", "50", "台"),
+            RequirementRow(None, "2", "便携式计算机", "20", "台"),
+            RequirementRow(None, "3", "激光打印机", "10", "台"),
+            RequirementRow("2", "1", "复印纸", "200", "箱"),
+            RequirementRow(None, "2", "硒鼓", "80", "支"),
+        ),
+    ),
+    Notice(
+        slug="DEMO-2026-005-req-v1",
+        project_no="DEMO-2026-005",
+        section_no="01、02",
+        notice_type="original",
+        title="办公用品集中采购项目采购公告（附第 1 版采购需求表）",
+        published_at="2026-11-03 09:00",
+        deadline=None,
+        deadline_label=None,
+        body=(
+            "办公用品集中采购项目现公开征集供应商，采购需求表附后。",
+            "项目编号：DEMO-2026-005；供应商可按包报价。",
+        ),
+        project_name="办公用品集中采购项目",
+        requirements_title="采购需求一览表（第 1 版）",
+        requirements=(
+            RequirementRow("1", "1", "订书机", "100", "个"),
+            RequirementRow(None, "2", "文件柜", "15", "组"),
+            RequirementRow("2", "1", "白板", "8", "块"),
+        ),
+    ),
+    Notice(
+        slug="DEMO-2026-004-req-v2",
+        project_no="DEMO-2026-004",
+        section_no="01、02",
+        notice_type="extension",
+        title="智慧校园文印设备采购项目需求更正公告（第 2 版采购需求表）",
+        published_at="2026-11-06 10:00",
+        deadline=None,
+        deadline_label=None,
+        body=(
+            "因采购需求调整，现发布第 2 版采购需求表，替代 2026年11月02日 发布的版本。",
+            "项目编号：DEMO-2026-004；本次更正涉及数量调整、品目换包以及增删。",
+            "已领取采购文件的供应商请以本版需求表为准。",
+        ),
+        project_name="智慧校园文印设备采购项目",
+        requirements_note="注：本表为更正后版本，品目行顺序调整不构成变更。",
+        requirements=(
+            RequirementRow("1", "2", "便携式计算机", "20", "台"),
+            RequirementRow(None, "1", "台式计算机", "60", "台"),
+            RequirementRow("2", "1", "复印纸", "200", "箱"),
+            RequirementRow(None, "3", "激光打印机", "10", "台"),
+            RequirementRow(None, "4", "扫描仪", "5", "台"),
+        ),
+    ),
+    Notice(
+        slug="DEMO-2026-005-req-v2",
+        project_no="DEMO-2026-005",
+        section_no="01、02",
+        notice_type="extension",
+        title="办公用品集中采购项目需求更正公告（第 2 版采购需求表）",
+        published_at="2026-11-07 09:00",
+        deadline=None,
+        deadline_label=None,
+        body=(
+            "因采购需求调整，现发布第 2 版采购需求表，替代 2026年11月03日 发布的版本。",
+            "项目编号：DEMO-2026-005。",
+            "已领取采购文件的供应商请以本版需求表为准。",
+        ),
+        project_name="办公用品集中采购项目",
+        requirements_note="注：包 1 品目 2 在本表中出现两行且数量不一致，需与采购人核对。",
+        requirements=(
+            RequirementRow("1", "1", "订书机", "120", "个"),
+            RequirementRow(None, "2", "文件柜", "15", "组"),
+            RequirementRow(None, "2", "文件柜", "20", "组"),
+            RequirementRow("2", "1", "白板", "8", "块"),
+        ),
+    ),
 )
 
 
@@ -198,3 +307,19 @@ def page_count() -> int:
 def notices_on_page(page: int) -> list[Notice]:
     start = (page - 1) * PAGE_SIZE
     return list(NOTICES_ASC[start : start + PAGE_SIZE])
+
+
+def requirement_view(notice: Notice) -> list[dict]:
+    """Flatten requirement rows for the template, computing rowspan values."""
+
+    rows = list(notice.requirements)
+    view: list[dict] = []
+    for index, row in enumerate(rows):
+        if row.package_no is None:
+            view.append({"package_span": 0, "package_no": "", "row": row})
+            continue
+        span = 1
+        while index + span < len(rows) and rows[index + span].package_no is None:
+            span += 1
+        view.append({"package_span": span, "package_no": row.package_no, "row": row})
+    return view

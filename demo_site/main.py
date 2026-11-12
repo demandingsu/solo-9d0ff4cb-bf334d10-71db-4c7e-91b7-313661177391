@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .data import NOTICE_BY_SLUG, PAGE_SIZE, TYPE_LABELS, notices_on_page, page_count
+from .data import NOTICE_BY_SLUG, PAGE_SIZE, TYPE_LABELS, notices_on_page, page_count, requirement_view
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -59,7 +59,11 @@ async def notice_detail(request: Request, slug: str):
     return templates.TemplateResponse(
         request,
         "detail.html",
-        {"notice": notice, "type_labels": TYPE_LABELS},
+        {
+            "notice": notice,
+            "type_labels": TYPE_LABELS,
+            "requirement_rows": requirement_view(notice),
+        },
     )
 
 

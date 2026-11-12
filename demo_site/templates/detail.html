@@ -35,6 +35,42 @@
     {% endfor %}
   </div>
 
+  {% if notice.requirements %}
+  <section class="req-section">
+    <h2>采购需求表</h2>
+    <table class="req-table">
+      <thead>
+        {% if notice.requirements_title %}
+        <tr><th class="req-caption" colspan="5">{{ notice.requirements_title }}</th></tr>
+        {% endif %}
+        <tr>
+          <th>包号</th>
+          <th>品目号</th>
+          <th>品目名称</th>
+          <th>数量</th>
+          <th>单位</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in requirement_rows %}
+        <tr>
+          {% if entry.package_span > 0 %}
+          <td class="req-package" rowspan="{{ entry.package_span }}">{{ entry.package_no }}</td>
+          {% endif %}
+          <td>{{ entry.row.item_no }}</td>
+          <td>{{ entry.row.name }}</td>
+          <td>{{ entry.row.quantity }}</td>
+          <td>{{ entry.row.unit }}</td>
+        </tr>
+        {% endfor %}
+        {% if notice.requirements_note %}
+        <tr><td class="req-note" colspan="5">{{ notice.requirements_note }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
   <div class="download-box">
     <strong>附件</strong>
     <span>招标文件（演示占位，无实际文件）</span>

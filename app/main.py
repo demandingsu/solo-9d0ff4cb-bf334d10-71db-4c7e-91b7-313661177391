@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from .crawler import check_lot, normalize_url
+from .listdiff import diff_lists
 
 BASE_DIR = Path(__file__).resolve().parent
 DEMO_INTERNAL_URL = os.getenv("DEMO_INTERNAL_URL", "http://localhost:8001").rstrip("/")
@@ -98,7 +99,7 @@ templates.env.filters["public_url"] = public_url_for
 @app.middleware("http")
 async def disable_stale_results(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path in {"/", "/check", "/api/check"} or request.url.path.startswith("/demo"):
+    if request.url.path in {"/", "/check", "/api/check", "/diff", "/api/diff"} or request.url.path.startswith("/demo"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
         response.headers["Pragma"] = "no-cache"
     return response
@@ -108,6 +109,11 @@ class CheckPayload(BaseModel):
     list_url: str = Field(..., description="公告列表页地址")
     project_no: str = Field(..., description="项目编号")
     section_no: str = Field(..., description="标段号")
+
+
+class DiffPayload(BaseModel):
+    old_url: str = Field(..., description="旧版公告详情地址")
+    new_url: str = Field(..., description="新版公告详情地址")
 
 
 def _demo_presets() -> list[dict[str, str]]:
@@ -145,12 +151,35 @@ def _demo_presets() -> list[dict[str, str]]:
     return presets
 
 
+def _diff_presets() -> list[dict[str, str]]:
+    presets = [
+        {
+            "name": "需求更正（合并包号 · 换包）",
+            "old_url": f"{DEMO_PUBLIC_URL}/notices/detail/DEMO-2026-004-req-v1",
+            "new_url": f"{DEMO_PUBLIC_URL}/notices/detail/DEMO-2026-004-req-v2",
+            "note": "包号合并单元格；数量修改、品目换包、新增与删除",
+        },
+        {
+            "name": "单版内容冲突（待核）",
+            "old_url": f"{DEMO_PUBLIC_URL}/notices/detail/DEMO-2026-005-req-v1",
+            "new_url": f"{DEMO_PUBLIC_URL}/notices/detail/DEMO-2026-005-req-v2",
+            "note": "新版同键两行互相冲突，仅该品目待核，其余照常比较",
+        },
+    ]
+    for preset in presets:
+        preset["href"] = "/diff?" + urlencode(
+            {"old_url": preset["old_url"], "new_url": preset["new_url"]}
+        )
+    return presets
+
+
 def _base_context(request: Request) -> dict:
     return {
         "request": request,
         "demo_list_url": DEMO_LIST_URL,
         "demo_public_url": "/demo/notices?page=1",
         "presets": _demo_presets(),
+        "diff_presets": _diff_presets(),
         "demo_available": bool(DEMO_INTERNAL_URL),
     }
 
@@ -207,6 +236,73 @@ async def check_page(
         "index.html",
         _base_context(request) | {"result": result, "form": form, "form_error": None},
     )
+
+
+@app.get("/diff", response_class=HTMLResponse)
+async def diff_page(
+    request: Request,
+    old_url: str = "",
+    new_url: str = "",
+):
+    form = {"old_url": old_url, "new_url": new_url}
+    context = _base_context(request) | {
+        "result": None,
+        "form": form,
+        "form_error": None,
+    }
+    if not old_url.strip() or not new_url.strip():
+        if old_url.strip() or new_url.strip():
+            return templates.TemplateResponse(
+                request,
+                "diff.html",
+                context | {"form_error": "请同时填写旧版和新版公告详情地址。"},
+                status_code=400,
+            )
+        return templates.TemplateResponse(request, "diff.html", context)
+
+    try:
+        old_crawl = demo_crawl_url(old_url)
+        new_crawl = demo_crawl_url(new_url)
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request,
+            "diff.html",
+            context | {"form_error": str(exc)},
+            status_code=400,
+        )
+
+    outcome = await diff_lists(old_crawl, new_crawl)
+    result = outcome.as_dict(public_url_for)
+    return templates.TemplateResponse(
+        request,
+        "diff.html",
+        context | {"result": result},
+    )
+
+
+async def _json_diff(old_url: str, new_url: str) -> JSONResponse:
+    try:
+        old_crawl = demo_crawl_url(old_url)
+        new_crawl = demo_crawl_url(new_url)
+    except ValueError:
+        # Let diff_lists produce its normal failure shape with the bad address.
+        result = (await diff_lists(old_url, new_url)).as_dict(public_url_for)
+        return JSONResponse(result, status_code=400)
+    result = (await diff_lists(old_crawl, new_crawl)).as_dict(public_url_for)
+    return JSONResponse(result)
+
+
+@app.get("/api/diff")
+async def api_diff(
+    old_url: Annotated[str, Query(description="旧版公告详情地址")],
+    new_url: Annotated[str, Query(description="新版公告详情地址")],
+):
+    return await _json_diff(old_url, new_url)
+
+
+@app.post("/api/diff")
+async def api_diff_post(payload: DiffPayload):
+    return await _json_diff(payload.old_url, payload.new_url)
 
 
 async def _json_result(list_url: str, project_no: str, section_no: str) -> JSONResponse:

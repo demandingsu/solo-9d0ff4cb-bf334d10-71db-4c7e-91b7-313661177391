@@ -138,6 +138,15 @@ code { padding: 2px 5px; border-radius: 4px; background: #eef1f5; font-family: u
 .notice-body p { margin: 0 0 14px; }
 .key-line { padding: 12px 14px; border-left: 4px solid var(--brand); background: var(--brand-soft); font-weight: 650; }
 
+.req-section { margin-top: 26px; }
+.req-section h2 { margin: 0 0 12px; font-size: 19px; }
+.req-table { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); font-size: 14px; }
+.req-table th, .req-table td { padding: 10px 14px; border: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.req-table thead th { color: var(--muted); background: #f8fafc; font-size: 13px; font-weight: 600; }
+.req-table .req-caption { color: var(--brand); background: var(--brand-soft); text-align: center; font-size: 14px; }
+.req-table .req-package { background: #f8fafc; font-weight: 700; text-align: center; }
+.req-table .req-note { color: var(--muted); background: #f8fafc; font-size: 13px; }
+
 .download-box { display: flex; gap: 12px; align-items: baseline; margin-top: 26px; padding: 14px 16px; border: 1px dashed #b9c5d3; border-radius: 6px; color: var(--muted); font-size: 13px; }
 .detail-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; font-size: 13px; }
 .detail-actions a, .button-link { color: var(--brand); }

@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}{% if result %}清单差异 · {% endif %}采购需求清单差异核对{% endblock %}
+{% block content %}
+<section class="hero hero-diff">
+  <div class="hero-copy">
+    <p class="eyebrow">采购代理人工作台</p>
+    <h1>两版需求表，哪些品目变了？</h1>
+    <p class="lede">
+      输入同一站点旧版、新版公告详情页地址，工具实时读取两页 HTML 需求表，
+      还原合并单元格中的包号，按“包号 + 品目号”对齐名称、数量和单位，
+      列出新增、删除、修改与待核项，方便通知已领取文件的供应商。
+    </p>
+    <ul class="feature-list">
+      <li>自动还原合并的包号单元格</li>
+      <li>行顺序变化不算修改</li>
+      <li>品目换包按旧包删除、新包新增</li>
+      <li>单版内容冲突仅标待核</li>
+    </ul>
+  </div>
+
+  <aside class="demo-card">
+    <div class="demo-card-head">
+      <span class="demo-dot"></span>
+      <div>
+        <strong>离线演示，已内置</strong>
+        <p>示例站第 4–5 页公告含两版需求表，断网可核对。</p>
+      </div>
+    </div>
+    <div class="preset-list">
+      {% for preset in diff_presets %}
+      <a class="preset" href="{{ preset.href }}">
+        <span>
+          <strong>{{ preset.name }}</strong>
+          <small>{{ preset.note }}</small>
+        </span>
+        <span class="preset-arrow" aria-hidden="true">→</span>
+      </a>
+      {% endfor %}
+    </div>
+    <p class="demo-hint">
+      结果中的来源链接已自动转为本站
+      <a href="{{ demo_public_url }}" target="_blank" rel="noopener">/demo</a>
+      代理，浏览器可直接打开原文位置。
+    </p>
+  </aside>
+</section>
+
+<form class="check-form diff-form" method="get" action="/diff" aria-label="需求清单差异核对">
+  <div class="field field-url">
+    <label for="old_url">旧版公告详情地址</label>
+    <input id="old_url" name="old_url" type="text" required
+           value="{{ form.old_url or '' }}"
+           placeholder="https://example.com/notices/detail/old-version"
+           autocomplete="off" spellcheck="false">
+    <span class="field-note">旧版采购需求公告的详情页完整地址。</span>
+  </div>
+  <div class="field field-url">
+    <label for="new_url">新版公告详情地址</label>
+    <input id="new_url" name="new_url" type="text" required
+           value="{{ form.new_url or '' }}"
+           placeholder="https://example.com/notices/detail/new-version"
+           autocomplete="off" spellcheck="false">
+    <span class="field-note">新版（更正后）公告详情页地址，须与旧版属同一站点。</span>
+  </div>
+  <button class="submit-button" type="submit">
+    比较需求表
+    <span aria-hidden="true">→</span>
+  </button>
+</form>
+
+{% if form_error %}
+<div class="alert alert-error" role="alert">
+  <strong>无法开始比较</strong>
+  <p>{{ form_error }}</p>
+</div>
+{% endif %}
+
+{% if result %}
+<section class="result-section" aria-labelledby="diff-heading">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">差异结果</p>
+      <h2 id="diff-heading">需求清单差异</h2>
+    </div>
+    <span class="timestamp">本次实时抓取</span>
+  </div>
+
+  {% if not result.determinable %}
+  <div class="alert alert-unknown" role="alert">
+    <strong>本轮无法给出确定差异</strong>
+    <p>{{ result.reason }} 在问题解决前，请勿依据本页内容通知供应商。</p>
+    {% if result.failures %}
+    <div class="failure-list">
+      <p class="failure-title">读取失败的地址：</p>
+      <ul>
+        {% for failure in result.failures %}
+        <li>
+          <span class="failure-reason">{{ failure.reason }}</span>
+          <a href="{{ failure.url }}" target="_blank" rel="noopener">{{ failure.url }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="diff-summary">
+    <span class="diff-chip chip-added">新增 {{ result.summary.added }}</span>
+    <span class="diff-chip chip-removed">删除 {{ result.summary.removed }}</span>
+    <span class="diff-chip chip-modified">修改 {{ result.summary.modified }}</span>
+    <span class="diff-chip chip-pending">待核 {{ result.summary.pending }}</span>
+    <span class="diff-chip chip-same">未变化 {{ result.summary.unchanged }}</span>
+  </div>
+
+  <div class="version-pair">
+    <div class="version-card">
+      <p class="side-label">旧版</p>
+      <a href="{{ result.old_page.url }}" target="_blank" rel="noopener">{{ result.old_page.title or result.old_page.url }}</a>
+      <p class="muted-note">读取 {{ result.old_page.row_count }} 行需求</p>
+    </div>
+    <div class="version-card">
+      <p class="side-label">新版</p>
+      <a href="{{ result.new_page.url }}" target="_blank" rel="noopener">{{ result.new_page.title or result.new_page.url }}</a>
+      <p class="muted-note">读取 {{ result.new_page.row_count }} 行需求</p>
+    </div>
+  </div>
+
+  {% if result.warnings %}
+  <div class="alert alert-warning">
+    <strong>需要留意的提示</strong>
+    <ul>
+      {% for warning in result.warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if result.modified %}
+  <div class="content-card">
+    <div class="card-heading">
+      <div>
+        <p class="eyebrow">修改</p>
+        <h3>名称、数量或单位发生变化的品目（{{ result.summary.modified }}）</h3>
+      </div>
+      <span class="muted-note">行顺序变化不列入</span>
+    </div>
+    <div class="table-wrap">
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th>包号 / 品目号</th>
+            <th>变化</th>
+            <th>旧版原文</th>
+            <th>新版原文</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in result.modified %}
+          <tr>
+            <td class="nowrap"><strong>包 {{ entry.package_no or '—' }}</strong><br>品目 {{ entry.item_no }}</td>
+            <td>
+              {% for change in entry.changes %}
+              <p class="change-line">
+                <span class="change-field">{{ change.field }}</span>
+                <span class="change-old">{{ change.old or '（空）' }}</span>
+                <span aria-hidden="true">→</span>
+                <span class="change-new">{{ change.new or '（空）' }}</span>
+              </p>
+              {% endfor %}
+            </td>
+            <td class="raw-cell">{{ entry.old.raw_text }}</td>
+            <td class="raw-cell">{{ entry.new.raw_text }}</td>
+            <td class="nowrap">
+              <a class="inline-link" href="{{ entry.old.source_url }}" target="_blank" rel="noopener">旧版 ↗</a>
+              <a class="inline-link" href="{{ entry.new.source_url }}" target="_blank" rel="noopener">新版 ↗</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if result.added %}
+  <div class="content-card">
+    <div class="card-heading">
+      <div>
+        <p class="eyebrow">新增</p>
+        <h3>新版中新增的品目（{{ result.summary.added }}）</h3>
+      </div>
+      <span class="muted-note">含从其他包换入的品目</span>
+    </div>
+    <div class="table-wrap">
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th>包号 / 品目号</th>
+            <th>品目名称</th>
+            <th>数量</th>
+            <th>单位</th>
+            <th>新版原文</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in result.added %}
+          <tr>
+            <td class="nowrap"><strong>包 {{ row.package_no or '—' }}</strong><br>品目 {{ row.item_no }}</td>
+            <td>{{ row.name }}</td>
+            <td class="nowrap">{{ row.quantity }}</td>
+            <td class="nowrap">{{ row.unit }}</td>
+            <td class="raw-cell">{{ row.raw_text }}</td>
+            <td class="nowrap"><a class="inline-link" href="{{ row.source_url }}" target="_blank" rel="noopener">新版 ↗</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if result.removed %}
+  <div class="content-card">
+    <div class="card-heading">
+      <div>
+        <p class="eyebrow">删除</p>
+        <h3>新版中不再出现的品目（{{ result.summary.removed }}）</h3>
+      </div>
+      <span class="muted-note">含换到其他包的品目</span>
+    </div>
+    <div class="table-wrap">
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th>包号 / 品目号</th>
+            <th>品目名称</th>
+            <th>数量</th>
+            <th>单位</th>
+            <th>旧版原文</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in result.removed %}
+          <tr>
+            <td class="nowrap"><strong>包 {{ row.package_no or '—' }}</strong><br>品目 {{ row.item_no }}</td>
+            <td>{{ row.name }}</td>
+            <td class="nowrap">{{ row.quantity }}</td>
+            <td class="nowrap">{{ row.unit }}</td>
+            <td class="raw-cell">{{ row.raw_text }}</td>
+            <td class="nowrap"><a class="inline-link" href="{{ row.source_url }}" target="_blank" rel="noopener">旧版 ↗</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if result.pending %}
+  <div class="content-card">
+    <div class="card-heading">
+      <div>
+        <p class="eyebrow">待核</p>
+        <h3>同一版本内内容冲突、需人工核对的品目（{{ result.summary.pending }}）</h3>
+      </div>
+      <span class="muted-note">不根据冲突行推断增删</span>
+    </div>
+    {% for entry in result.pending %}
+    <div class="pending-card">
+      <div class="pending-head">
+        <strong>包 {{ entry.package_no or '—' }} · 品目 {{ entry.item_no }}</strong>
+        {% for reason in entry.reasons %}<span class="pending-reason">{{ reason }}</span>{% endfor %}
+      </div>
+      <div class="pending-sides">
+        <div class="pending-side">
+          <p class="side-label">旧版（{{ entry.old_rows|length }} 行）</p>
+          {% if entry.old_rows %}
+          <ul>
+            {% for row in entry.old_rows %}
+            <li>
+              <span class="raw-cell">{{ row.raw_text }}</span>
+              <a class="inline-link" href="{{ row.source_url }}" target="_blank" rel="noopener">旧版第 {{ row.row_no }} 行 ↗</a>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="muted-note">旧版无此品目。</p>
+          {% endif %}
+        </div>
+        <div class="pending-side">
+          <p class="side-label">新版（{{ entry.new_rows|length }} 行）</p>
+          {% if entry.new_rows %}
+          <ul>
+            {% for row in entry.new_rows %}
+            <li>
+              <span class="raw-cell">{{ row.raw_text }}</span>
+              <a class="inline-link" href="{{ row.source_url }}" target="_blank" rel="noopener">新版第 {{ row.row_no }} 行 ↗</a>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="muted-note">新版无此品目。</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not result.modified and not result.added and not result.removed and not result.pending %}
+  <div class="content-card">
+    <p class="empty-copy">两版需求表内容一致（行顺序差异不计）。</p>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <div class="result-actions">
+    <a class="button-secondary" href="/diff">比较另外两版</a>
+    <span>本次比较不保存数据，刷新或重新查询会重新抓取。</span>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
